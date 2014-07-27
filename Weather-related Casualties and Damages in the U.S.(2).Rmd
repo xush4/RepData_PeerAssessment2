@@ -1,19 +1,20 @@
 # Weather-related Casualties and Damages in the U.S.
 ###==================================================================
 ## Reading data
-```{r}
+```{r,results='hide'}
+setwd("H:\\–ÌÍ…\\Rprogramming\\Github\\RepData_PeerAssessment2")
 library(stringr)
 library(dplyr)
 library(reshape2)
 library(ggplot2)
-
 if (!file.exists("stormData.csv.bz2")){
    setInternet2(use = TRUE)
 download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "stormData.csv.bz2")     
 }
-
-rawStorm = read.csv(bzfile("StormData.csv.bz2"), as.is = TRUE, header = TRUE)
-# let's take a peek at the data:
+rawStorm = read.csv("StormData.csv",header = TRUE, sep = ",")
+```
+### let's take a peek at the data:
+```{r}
 summary(rawStorm)
 ```
 ```{r}
@@ -33,7 +34,7 @@ rawStorm$PROPDMGEXP = as.numeric(rawStorm$PROPDMGEXP)
 rawStorm$PROPDMGEXP[is.na(rawStorm$PROPDMGEXP) == TRUE] = 0
 
 # calculate new property damage
-rawStorm$propDamage = ( rawStorm$PROPDMG * ( 10 ^ rawStorm$PROPDMGEXP ) )
+rawStorm$propDamage = ( as.numeric(rawStorm$PROPDMG) * ( 10 ^ rawStorm$PROPDMGEXP ) )
 ```
 
 ## Results
@@ -49,7 +50,7 @@ harmByEvent = rawStorm %.%
 harmByEvent = arrange(harmByEvent, -cntEvents)
 
 # convert event types to lowercase format
-harmByEvent$EVTYPE = paste0( tolower(harmByEvent$EVTYPE), " (", harmByEvent$cntEvents, ")" )
+harmByEvent$EVTYPE = paste( tolower(harmByEvent$EVTYPE), " (", harmByEvent$cntEvents, ")" )
 
 # plot top ten
 # create plot data frame and melt (for easier plotting)
