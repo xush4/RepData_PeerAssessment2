@@ -1,0 +1,96 @@
+# Weather-related Casualties and Damages in the U.S.
+###==================================================================
+## Reading data
+```{r}
+library(stringr)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+
+if (!file.exists("stormData.csv.bz2")){
+   setInternet2(use = TRUE)
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", "stormData.csv.bz2")     
+}
+
+rawStorm = read.csv(bzfile("StormData.csv.bz2"), as.is = TRUE, header = TRUE)
+# let's take a peek at the data:
+summary(rawStorm)
+```
+```{r}
+# convert crop and property amounts into total dollars based on EXP fields
+# first change all char values to lower case
+rawStorm$PROPDMGEXP = tolower(rawStorm$PROPDMGEXP)
+
+rawStorm$PROPDMGEXP = gsub('-', 0, rawStorm$PROPDMGEXP)
+rawStorm$PROPDMGEXP = gsub('h', 2, rawStorm$PROPDMGEXP)
+rawStorm$PROPDMGEXP = gsub('k', 3, rawStorm$PROPDMGEXP)
+rawStorm$PROPDMGEXP = gsub('m', 6, rawStorm$PROPDMGEXP)
+rawStorm$PROPDMGEXP = gsub('b', 9, rawStorm$PROPDMGEXP)
+
+rawStorm$PROPDMGEXP = as.numeric(rawStorm$PROPDMGEXP)
+```
+```{r}
+rawStorm$PROPDMGEXP[is.na(rawStorm$PROPDMGEXP) == TRUE] = 0
+
+# calculate new property damage
+rawStorm$propDamage = ( rawStorm$PROPDMG * ( 10 ^ rawStorm$PROPDMGEXP ) )
+```
+
+## Results
+### Which events are most harmful to pop. health?
+```{r}
+# create data frame of total and average population harms by event type
+harmByEvent = rawStorm %.%
+  group_by(EVTYPE) %.%
+  summarize(cntEvents = n(), totalFatalities = sum(FATALITIES), totalInjuries = sum(INJURIES), 
+            avgFatalities = totalFatalities / cntEvents, avgInjuries = totalInjuries / cntEvents )
+
+# order by occurence of event
+harmByEvent = arrange(harmByEvent, -cntEvents)
+
+# convert event types to lowercase format
+harmByEvent$EVTYPE = paste0( tolower(harmByEvent$EVTYPE), " (", harmByEvent$cntEvents, ")" )
+
+# plot top ten
+# create plot data frame and melt (for easier plotting)
+dfPlot = melt(harmByEvent[1:10,][c('EVTYPE', 'avgFatalities', 'avgInjuries')], id.vars='EVTYPE')
+
+dfPlot = arrange(dfPlot, variable, -value)
+
+# plot top ten events
+ggplot(dfPlot, aes(x = EVTYPE, y = value, color = variable)) + 
+  geom_point(stat = 'identity', size = 3) + 
+  scale_x_discrete(limits = dfPlot$EVTYPE[1:10]) + 
+  coord_flip() +
+  xlab('event type (n)') + ylab('average harms per event') + 
+  theme_bw() + 
+  ggtitle('average harms (injuries/fatalities)\nby event type')
+```
+Of the most prevalent weather event types, tornadoes not only have the highest average deaths per event, but also the highest average injuries per event - and by a wide margin.
+### Which events are most harmful to economy?
+```{r}
+# create data frame of property damage by event type  
+costByEvent = rawStorm %.%
+  group_by(EVTYPE) %.%
+  summarize(cntEvents = n(), totalPropDamage = sum(propDamage), avgPropDamage = totalPropDamage / cntEvents )
+
+# order by occurence of event
+costByEvent = arrange(costByEvent, -cntEvents)
+
+# convert event types to lowercase format
+costByEvent$EVTYPE = paste0( tolower(costByEvent$EVTYPE), " (", costByEvent$cntEvents, ")" )
+
+# plot top ten
+# create plot data frame
+dfCostPlot = costByEvent[1:10, ]
+dfCostPlot = arrange(dfCostPlot, -avgPropDamage)
+
+# plot top ten events
+ggplot(dfCostPlot, aes(x = EVTYPE, y = avgPropDamage) ) +
+  geom_bar(stat = 'identity') + 
+  scale_x_discrete(limits = dfCostPlot$EVTYPE[1:10]) + 
+  coord_flip() +
+  xlab('event type (n)') + ylab('average property damage per event') + 
+  theme_bw() + ggtitle('average property damage\nby event type')
+```
+Of the most prevalent weather event types, floods have the highest average property damage per event. Tornadoes come in a distance second, followed by flash floods 
